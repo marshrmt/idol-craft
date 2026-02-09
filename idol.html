@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Idol Craft Calculator (Prefix/Suffix)</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 24px;
+      background:#0b0f14;
+      color:#e6eef7;
+    }
+    h1 { margin: 0 0 12px; font-size: 20px; }
+
+    .grid { display:grid; gap:12px; grid-template-columns: 1fr 1fr; max-width: 980px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background:#101826;
+      border:1px solid #1e2a3a;
+      border-radius:12px;
+      padding:14px;
+      overflow:hidden;
+    }
+
+    label { display:block; font-size:12px; opacity:.85; margin-bottom:6px; }
+    input {
+      width:100%;
+      padding:7px 8px;           /* smaller */
+      border-radius:10px;
+      border:1px solid #223147;
+      background:#0c1220;
+      color:#e6eef7;
+      font-size:13px;            /* smaller */
+      box-sizing:border-box;
+    }
+
+    .row { display:grid; gap:10px; grid-template-columns: 1fr 1fr; }
+    .row4 { display:grid; gap:10px; grid-template-columns: 1fr 1fr; }
+    @media (min-width: 980px) { .row4 { grid-template-columns: 1fr 1fr; } }
+
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .muted { opacity:.8; }
+    .big { font-size: 20px; font-weight: 700; }
+
+    table { width:100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding:8px; border-bottom:1px solid #1e2a3a; text-align:left; vertical-align:top; }
+    th { opacity:.85; font-weight:600; }
+
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#17243a; border:1px solid #223147; }
+    .warn { color:#ffcf66; }
+    .ok { color:#7dffb2; }
+
+    button {
+      padding:8px 10px;          /* smaller */
+      border-radius:10px;
+      border:1px solid #223147;
+      background:#16233a;
+      color:#e6eef7;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    button:hover { filter: brightness(1.08); }
+
+    .footer { margin-top: 14px; font-size: 12px; opacity:.8; max-width: 980px; }
+  </style>
+</head>
+<body>
+  <h1>Калькулятор средней цены крафта (префикс1/2 + суффикс1/2)</h1>
+
+  <div class="grid">
+    <div class="card">
+      <div class="muted" style="margin-bottom:10px;">Цены 1-модных идолов</div>
+      <div class="row">
+        <div>
+          <label>префикс1</label>
+          <input id="p1" type="number" step="0.01" value="100" />
+        </div>
+        <div>
+          <label>префикс2</label>
+          <input id="p2" type="number" step="0.01" value="50" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <label>суффикс1</label>
+          <input id="s1" type="number" step="0.01" value="80" />
+        </div>
+        <div>
+          <label>суффикс2</label>
+          <input id="s2" type="number" step="0.01" value="5" />
+        </div>
+      </div>
+
+      <div class="muted" style="margin-top:14px; margin-bottom:10px;">Шанс собрать нужный 2-модный (префикс+суффикс)</div>
+      <div class="row4">
+        <div>
+          <label>p(префикс1 + суффикс1)</label>
+          <input id="pp11" type="number" step="0.0001" value="0.21" />
+        </div>
+        <div>
+          <label>p(префикс1 + суффикс2)</label>
+          <input id="pp12" type="number" step="0.0001" value="0.21" />
+        </div>
+        <div>
+          <label>p(префикс2 + суффикс1)</label>
+          <input id="pp21" type="number" step="0.0001" value="0.21" />
+        </div>
+        <div>
+          <label>p(префикс2 + суффикс2)</label>
+          <input id="pp22" type="number" step="0.0001" value="0.21" />
+        </div>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button id="ex1">пример</button>
+        <span class="muted">Модель: 2-мод = всегда префикс+суффикс; на шаге 3 выбирается самый выгодный из двух подходящих 2-модных.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="muted">Результат</div>
+      <div id="result" class="big mono" style="margin-top:6px;">—</div>
+      <div id="meta" class="muted" style="margin-top:8px;"></div>
+
+      <div style="margin-top:14px;">
+        <div class="muted">Детали</div>
+        <table class="mono" style="margin-top:8px;">
+          <thead>
+            <tr><th>Состояние</th><th>Значение</th></tr>
+          </thead>
+          <tbody id="details"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="pill mono">Вероятности</div>
+    <div class="mono" style="margin-top:6px; line-height:1.5;">
+      Шаг 2 (2+2): P(4)=1/9, P(3)=4/9, P(2)=4/9 (при 2-модном результате остаётся один из двух входных с шансом 1/2).<br/>
+      Шаг 3 (3+2): успех=1/5, откат в 2-мод=4/15, остаётся 3-мод=8/15.
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ---------- Model (client-side) ----------
+  // Mods: A=prefix1, B=prefix2, C=suffix1, D=suffix2
+  // Allowed 2-mod types (always prefix+suffix): AC, AD, BC, BD
+  // Step 2 probabilities: p4=1/9, p3=4/9, p2=4/9
+  // Step 3 probabilities: success=1/5, downTo2=4/15, stay3=8/15
+  // At step 3, when "downTo2" happens, we assume the remaining 2-mod idol is the one you crafted/used (as in earlier logic).
+
+  const ids = (x) => document.getElementById(x);
+
+  function fmt(x) {
+    if (!Number.isFinite(x)) return "—";
+    return x.toFixed(2);
+  }
+
+  function readNum(id) {
+    const v = parseFloat(ids(id).value);
+    return Number.isFinite(v) ? v : NaN;
+  }
+
+  function validateProb(p) {
+    return Number.isFinite(p) && p > 0 && p < 1;
+  }
+
+  function solveExpectedCost(inputs) {
+    const { cA, cB, cC, cD, pAC, pAD, pBC, pBD } = inputs;
+
+    const anyBadPrice = [cA,cB,cC,cD].some(v => !Number.isFinite(v) || v < 0);
+    if (anyBadPrice) return { error: "Цены должны быть числами ≥ 0." };
+
+    if (![pAC,pAD,pBC,pBD].every(validateProb)) {
+      return { error: "Все вероятности пар должны быть между 0 и 1 (например 0.21)." };
+    }
+
+    // 2-mod expected costs:
+    const C = {
+      AC: (cA + cC) / pAC,
+      AD: (cA + cD) / pAD,
+      BC: (cB + cC) / pBC,
+      BD: (cB + cD) / pBD
+    };
+
+    // complements to cover all 4 mods:
+    const comp = { AC:"BD", BD:"AC", AD:"BC", BC:"AD" };
+
+    // Step2 probabilities:
+    const p4 = 1/9;
+    const p3 = 4/9;
+    const p2 = 4/9;
+
+    // Step3 probabilities:
+    const r = 4/15;       // down to 2-mod
+    const q = 8/15;       // stay 3-mod
+    const oneMinusQ = 1 - q; // 7/15
+
+    // 3-mod states:
+    // W_ABC (missing D), W_ABD (missing C), W_ACD (missing B), W_BCD (missing A)
+    // Candidates (must include the missing mod, and be prefix+suffix):
+    const Wcands = {
+      ABC: ["AD", "BD"], // missing D
+      ABD: ["AC", "BC"], // missing C
+      ACD: ["BC", "BD"], // missing B
+      BCD: ["AC", "AD"]  // missing A
+    };
+
+    // Unknowns: V_{AC,AD,BC,BD} and W_{ABC,ABD,ACD,BCD}
+    // We'll do fixed-point iteration because W uses min over candidates involving V.
+    let V = { AC: 0, AD: 0, BC: 0, BD: 0 };
+    let W = { ABC: 0, ABD: 0, ACD: 0, BCD: 0 };
+
+    const maxIter = 5000;
+    const eps = 1e-10;
+
+    const avgW = (W) => (W.ABC + W.ABD + W.ACD + W.BCD) / 4;
+
+    for (let it = 0; it < maxIter; it++) {
+      const overW = avgW(W);
+      const a = p3 * overW; // a = p3 * E[W_state] = (4/9)*avg(W)
+
+      // Closed-form for V per complementary group:
+      // Vx = (2/5)C_x + (7/5)C_y + (9/5)a
+      // Vy = (7/5)C_x + (2/5)C_y + (9/5)a
+      const newV = { ...V };
+
+      // Group 1: AC <-> BD
+      newV.AC = (2/5)*C.AC + (7/5)*C.BD + (9/5)*a;
+      newV.BD = (7/5)*C.AC + (2/5)*C.BD + (9/5)*a;
+
+      // Group 2: AD <-> BC
+      newV.AD = (2/5)*C.AD + (7/5)*C.BC + (9/5)*a;
+      newV.BC = (7/5)*C.AD + (2/5)*C.BC + (9/5)*a;
+
+      // Update W using optimal choice:
+      const newW = { ...W };
+      for (const key of Object.keys(Wcands)) {
+        const [t1, t2] = Wcands[key];
+
+        // For chosen type t:
+        // W = C[t] + q*W + r*V[t]  => W = (C[t] + r*V[t])/(1-q)
+        const val1 = (C[t1] + r * newV[t1]) / oneMinusQ;
+        const val2 = (C[t2] + r * newV[t2]) / oneMinusQ;
+        newW[key] = Math.min(val1, val2);
+      }
+
+      // convergence check
+      let delta = 0;
+      for (const k of ["AC","AD","BC","BD"]) delta = Math.max(delta, Math.abs(newV[k] - V[k]));
+      for (const k of ["ABC","ABD","ACD","BCD"]) delta = Math.max(delta, Math.abs(newW[k] - W[k]));
+
+      V = newV;
+      W = newW;
+
+      if (delta < eps) {
+        return { C, V, W, iterations: it+1, converged: true };
+      }
+    }
+
+    return { C, V, W, iterations: maxIter, converged: false };
+  }
+
+  function computeAndRender() {
+    const cA = readNum("p1");
+    const cB = readNum("p2");
+    const cC = readNum("s1");
+    const cD = readNum("s2");
+
+    const pAC = readNum("pp11"); // prefix1+suffix1
+    const pAD = readNum("pp12"); // prefix1+suffix2
+    const pBC = readNum("pp21"); // prefix2+suffix1
+    const pBD = readNum("pp22"); // prefix2+suffix2
+
+    const out = solveExpectedCost({ cA, cB, cC, cD, pAC, pAD, pBC, pBD });
+
+    const resEl = ids("result");
+    const metaEl = ids("meta");
+    const detEl = ids("details");
+
+    detEl.innerHTML = "";
+
+    if (out.error) {
+      resEl.innerHTML = `<span class="warn">${out.error}</span>`;
+      metaEl.textContent = "";
+      return;
+    }
+
+    // Total expected cost from scratch:
+    // Start by crafting one 2-mod of type t (cost C[t]),
+    // then you're in state V[t] (have one 2-mod).
+    // Choose the best start.
+    const starts = ["AC","AD","BC","BD"].map(t => ({ t, val: out.C[t] + out.V[t] }));
+    starts.sort((a,b) => a.val - b.val);
+    const best = starts[0];
+
+    resEl.innerHTML = `<span class="ok">${fmt(best.val)}</span>`;
+    metaEl.innerHTML =
+      `Лучший старт: <span class="pill mono">${best.t}</span> &nbsp;|&nbsp; итераций: <span class="mono">${out.iterations}</span> ` +
+      (out.converged ? `<span class="ok">(сошлось)</span>` : `<span class="warn">(не сошлось)</span>`);
+
+    const rows = [];
+
+    rows.push(["C(AC) = (префикс1+суффикс1)/p(1,1)", fmt(out.C.AC)]);
+    rows.push(["C(AD) = (префикс1+суффикс2)/p(1,2)", fmt(out.C.AD)]);
+    rows.push(["C(BC) = (префикс2+суффикс1)/p(2,1)", fmt(out.C.BC)]);
+    rows.push(["C(BD) = (префикс2+суффикс2)/p(2,2)", fmt(out.C.BD)]);
+    rows.push(["—", "—"]);
+
+    rows.push(["V(AC): есть 2-мод AC на руках → до финиша", fmt(out.V.AC)]);
+    rows.push(["V(AD): есть 2-мод AD на руках → до финиша", fmt(out.V.AD)]);
+    rows.push(["V(BC): есть 2-мод BC на руках → до финиша", fmt(out.V.BC)]);
+    rows.push(["V(BD): есть 2-мод BD на руках → до финиша", fmt(out.V.BD)]);
+    rows.push(["—", "—"]);
+
+    rows.push(["W(ABC): есть 3-мод (A,B,C) (не хватает D)", fmt(out.W.ABC)]);
+    rows.push(["W(ABD): есть 3-мод (A,B,D) (не хватает C)", fmt(out.W.ABD)]);
+    rows.push(["W(ACD): есть 3-мод (A,C,D) (не хватает B)", fmt(out.W.ACD)]);
+    rows.push(["W(BCD): есть 3-мод (B,C,D) (не хватает A)", fmt(out.W.BCD)]);
+
+    rows.push(["—", "—"]);
+    rows.push(["Ожидаемая цена с нуля (лучший старт)", fmt(best.val)]);
+    rows.push(["Все старты (C+V)", starts.map(s => `${s.t}: ${s.val.toFixed(2)}`).join(" | ")]);
+
+    detEl.innerHTML = rows.map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  }
+
+  // wire up
+  ["p1","p2","s1","s2","pp11","pp12","pp21","pp22"].forEach(id => {
+    ids(id).addEventListener("input", computeAndRender);
+  });
+
+  ids("ex1").addEventListener("click", () => {
+    // Example: prefix1=100, prefix2=50, suffix1=80, suffix2=5 and all probs 0.21
+    ids("p1").value = 100;
+    ids("p2").value = 50;
+    ids("s1").value = 80;
+    ids("s2").value = 5;
+    ids("pp11").value = 0.21;
+    ids("pp12").value = 0.21;
+    ids("pp21").value = 0.21;
+    ids("pp22").value = 0.21;
+    computeAndRender();
+  });
+
+  computeAndRender();
+})();
+</script>
+</body>
+</html>
